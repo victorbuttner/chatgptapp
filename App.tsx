@@ -15,10 +15,9 @@ import {
 let appToken;
 console.log(Platform.OS);
 if (Platform.OS === 'ios') {
-  appToken = 'AA21aabc1b358c150d6b9a100803fda1ea8a7d538b-NRMA';
-  console.log(appToken);
+  appToken = 'AAe423c8d68cb73e34d1cb7fafde32026e739a4f50-NRMA';
 } else {
-  appToken = 'AA2dc4e8ce81c1371a60c852f203700af79a7a3653-NRMA';
+  appToken = 'AA7bb0104f7f41bb9b01b59ae73efa934a2a3812c1-NRMA';
 }
 const agentConfiguration = {
   //Android Specific
@@ -49,6 +48,7 @@ const agentConfiguration = {
   // Optional:Enable or disable reporting data using different endpoints for US government clients
   // fedRampEnabled: false
 };
+
 NewRelic.startAgent(appToken, agentConfiguration);
 NewRelic.setJSAppVersion(version);
 AppRegistry.registerComponent('ChatGPTApp', () => App);
@@ -78,6 +78,10 @@ const styles = StyleSheet.create({
 const WelcomeScreen = ({onSubmitUsername}) => {
   const [username, setUsername] = useState('');
 
+  const simulateCrash = () => {
+    NewRelic.crashNow('This is a test crash');
+  };
+
   return (
     <View style={styles.container}>
       <TextInput
@@ -87,6 +91,7 @@ const WelcomeScreen = ({onSubmitUsername}) => {
         onChangeText={setUsername}
       />
       <Button title="Enter Chat" onPress={() => onSubmitUsername(username)} />
+      <Button title="Simulate Crash" onPress={simulateCrash} />
     </View>
   );
 };
@@ -115,6 +120,13 @@ const App = () => {
   const onSend = async (newMessages = []) => {
     setMessages(GiftedChat.append(messages, newMessages));
     const message = newMessages[0].text;
+
+    NewRelic.setAttribute('username', user ? user.name : 'undefined');
+
+    NewRelic.recordBreadcrumb('MessageSent', {
+      message: message,
+      username: user ? user.name : 'undefined',
+    });
 
     console.log('message', {
       source: 'UserMessage',
@@ -153,6 +165,11 @@ const App = () => {
       );
       const replies = response.data.choices[0].message.content.trim();
 
+      NewRelic.recordCustomEvent('OpenAIResponse', 'message', {
+        replies,
+        username: user ? user.name : 'undefined',
+      });
+
       console.log('message', {
         source: 'OpenAIResponse',
         text: replies,
@@ -171,6 +188,7 @@ const App = () => {
         }),
       );
     } catch (error) {
+      NewRelic.recordError(new Error(String(error)));
       console.error(error);
     }
   };
@@ -180,6 +198,8 @@ const App = () => {
       _id: 1,
       name: username,
     });
+
+    NewRelic.setUserId(username);
   };
 
   if (!user) {
